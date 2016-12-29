@@ -46,6 +46,10 @@ class Application(object):
     def plot(self, var):
         plotdata(var)
 
+    # FIX ME;  This is a kludge.
+    def plot_nods(self, varname):
+        pass
+
     # FIX ME: Find a better solution for authentication than making the
     # application rely on handling the password.  Someone with access to this
     # code will have access to the password.

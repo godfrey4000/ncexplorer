@@ -125,8 +125,8 @@ class TkinterFrame(object):
 
     def _plot_handler(self):
         item = self.tree.selection()
-        item_contents = self.tree.item(item)
-        self._app.plot(item)
+        names = self.tree.item(item).tags
+        self._app.plot_nods(names['name'])
 
     def get_search_params(self):
         search_str = self.search_entry.get()
