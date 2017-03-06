@@ -3,34 +3,41 @@ Created on Dec 27, 2016
 
 @author: neil
 '''
-import code
 from mpl_toolkits.basemap import Basemap
 import numpy as np
 import matplotlib.pyplot as plt
 
+# Map defaults
+UCLA = [34.07, -118.45]  # Center map on UCLA by default
+COLOR_COASTLINES = '#666666'
+COLOR_CONTINENTS = '#cccccc'
 
-def plotdata(var):
-    lat_0 = 33.6
-    lon_0 = -117.9
-    map = Basemap(projection='ortho', lat_0=lat_0, lon_0=lon_0)
-    map.drawcoastlines(linewidth=0.5, color='#666666')
-    map.fillcontinents(color='#cccccc', alpha=0.5)
+class Plotter(object):
     
-    # FIX ME:  These lvels are hard coded.  This is a workaround to the
-    # current problem of using 1e+20 to represent missing values.  The
-    # contourf method treats this as a data value.  So the resulting plot is
-    # all red over the continents and all blue over the oceans, since there is
-    # really on two values: 1e+20 and anything else.
-#    levels = [225, 235, 245, 255, 265, 275, 285, 295, 305, 315, 325]
-    levels = [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]
+    def __init__(self, axes=None, center=UCLA):
+        self.draw(axes=axes, center=center)
+        pass
+
+    def draw(self, axes=None, center=None, time_=0, plev=0, **kwargs):
+        if None == axes:
+            self._map = Basemap(projection='ortho', lat_0=center[0], lon_0=center[1])
+        else:
+            axes.clear()
+            self._map = Basemap(ax=axes, projection='ortho', lat_0=center[0], lon_0=center[1])
+        self._map.drawcoastlines(linewidth=0.5, color=COLOR_COASTLINES)
+        self._map.fillcontinents(color=COLOR_CONTINENTS, alpha=0.5)
+
+        if 'var' in kwargs:
+            var = kwargs['var']
+            self.plotdata(var, time_, plev)
     
-    lat = var['lat']
-    lon = var['lon']
-    lons, lats = np.meshgrid(lon, lat)
-    x, y = map(lons, lats)
+    def plotdata(self, var, time_=0, plev=0):
+        lat = var['lat']
+        lon = var['lon']
+        lons, lats = np.meshgrid(lon, lat)
+        x, y = self._map(lons, lats)
     
-    code.interact(local=locals())
-    
-    cs = map.contourf(x, y, var, levels=levels)
-    cbar = map.colorbar(cs)
-    plt.show()
+        # FIX ME: Try to be smart about the shape of the variable array.
+        cs = self._map.contourf(x, y, var[time_, plev])
+#        cbar = self._map.colorbar(cs)
+#        plt.show()
