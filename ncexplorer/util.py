@@ -4,10 +4,14 @@ Created on Dec 28, 2016
 @author: neil
 '''
 import sys
+import math
 import numpy as np
 import xarray as xr
 from scipy.spatial import KDTree, Delaunay
 from scipy.interpolate import LinearNDInterpolator
+
+from pydap.client import open_url
+from pydap.cas.urs import setup_session
 
 
 # Thanks to hernamesbarbara on github for this function.
@@ -213,3 +217,153 @@ def regrid(variables, lattice='union', tl=None, pl=None):
 
 
     return newvars
+
+def simple_regrid(var, progressbar, likevar=None):
+    """Regrids to 1x1 a variable of lat, lon only"""
+
+    if likevar is None:
+        coords_lat = np.linspace(-90, 90, 72)
+        coords_lon = np.linspace(0, 360 - 2.5, 144)
+    else:
+        # The lat and lon dimensions are inherited from the target lat-lon
+        # grid.  The time dimension to be unchanged, so it is inherited from
+        # the original var.
+        # FIXME:  There may not be a time coordinate.
+        coords_lat = likevar['lat'].values
+        coords_lon = likevar['lon'].values
+        coords_time = var['time'].values
+    
+    # Display the ranges involved in the regrid, for confidence.
+    varlatr = "[{0},{1}]".format(
+        var.lat.values[0], var.lat.values[len(var.lat) - 1])
+    varlonr = "[{0},{1}]".format(
+        var.lon.values[0], var.lon.values[len(var.lon) - 1])
+    tgtlatr = "[{0},{1}]".format(
+        coords_lat[0], coords_lat[len(coords_lat) - 1])
+    tgtlonr = "[{0},{1}]".format(
+        coords_lon[0], coords_lon[len(coords_lon) - 1])
+    print "The regrid will by from {0} X {1} --> {2} X {3}.".format(
+        varlatr, varlonr, tgtlatr, tgtlonr)
+
+    # FIXME:  This needs to be a more general routine.  Testing for the range
+    # being used needs to be more robust.
+    # If the range of longitudes is (-180,180), take the variable apart and
+    # rebuild it with the range (0,360).
+    if var.lon.values[0] < -10.0:
+        blankdata = np.empty( (len(var.time), len(var.lon), len(var.lat)) )
+        blankdata.fill(np.NaN)
+        blanklon = []
+        usevar = None
+        i = 0
+        for l in var.lon.values:
+            blanklon.append(math.fmod(l + 360, 360))
+            blankdata[:,i,:] = var.isel(lon=i)
+            i =+ 1
+        usevar = xr.DataArray(blankdata,
+                              coords={'time': var.time,
+                                      'lon': blanklon,
+                                      'lat': var.lat},
+                              dims=['time', 'lon', 'lat'])
+    else:
+        usevar = var
+        
+
+    # Impose a Delaunay triangulation and an indexing structure
+    # on the variable.
+    varcoords = cartesian(( [usevar['lat'], usevar['lon']] ))
+    vartri = Delaunay(varcoords)
+
+    # Create a DataArray object with the new shape filled with np.NaNs.  This
+    # will be filled with values interpolation from the variable var.
+    blankdata = np.empty( (len(coords_lat), len(coords_lon), len(coords_time)) )
+    blankdata.fill(np.NaN)
+    newvar = xr.DataArray(blankdata,
+                          coords={'lat': coords_lat,
+                                  'lon': coords_lon,
+                                  'time': coords_time},
+                          dims=['lat', 'lon', 'time'])
+
+    # Carry over the appropriate attributes.  The name attribute is not in the
+    # attrs dictionary.  But it's necessary; it's the variables name.
+    newvar.attrs = var.attrs
+    newvar.name = var.name
+    
+    # Set the missing_value attribute to 'NaN (numpy)'.
+    newvar.attrs['missing_value'] = 'NaN (numpy)'
+
+    # Show progress at the latitudes.  Otherwise it's too many.
+    progressbar.start( len(coords_lat)*len(coords_lon) )
+
+    # Iterate the new variable's grid, calculating the value from an
+    # interpolation of the simplices in the original variable.
+    # FIX ME: The interpolation function is calculated for as many points of
+    # the new variable that fall in a single simplex.  It only needs to be
+    # calculated once per simplex.
+    for i in range(0, len(coords_lat)):
+        for j in range(0, len(coords_lon)):
+        
+            # These steps produce the i-th simplex (triangle) in the variable.
+            lattice_point = [coords_lat[i], coords_lon[j]]
+            simplex_number = vartri.find_simplex(lattice_point)
+            if simplex_number >= 0:
+                simplex_points = vartri.simplices[simplex_number]
+                simplex = vartri.points[simplex_points]
+                
+                # These steps produce the n-values of the variable for the n-simplex.
+                # Since the simplices are triangles, these steps produce three values.
+                #
+                # Do this for each value of time.
+                for t in range(0, len(coords_time)):
+                    vals = []
+                    for k, vertex in enumerate(simplex):
+                        val_t = usevar.sel(lat=vertex[0], lon=vertex[1])
+                        val = val_t.isel(time=t)
+                        vals.append(val)
+            
+                    # These steps produce the function f that calculates the interpolated
+                    # value anywhere in the simplex (triangle), and then calculates that
+                    # value at the lattice point, and assigns it.
+                    f = LinearNDInterpolator(simplex, vals)
+                    x = f(lattice_point)
+                    newvar[i,j, t] = x 
+        
+            # Show progress.
+            msg = "Calculated values for ({:2.3f}, {:2.3f}).".format(coords_lat[i], coords_lon[j])
+            progressbar.update(msg)
+
+    return newvar
+
+def transpose_var(data):
+    """Determines if the data in an Xarray DataArray is transposed.
+    
+    Occasionally, the data in a dataset is organized with the longitude
+    coordinate first and the latitude coordinate second.  This is causing
+    problems with the matplotlib contourf and addcyclic methods.
+    
+    This function determines the lon dimension by comparing the shape of the
+    data to the lengths of the latitude and longitude coordinates.  If the
+    shape is such that the longitude is first, the data is transposed and the
+    new DataArray is returned.
+    """
+    data_shape = data.shape
+    if data_shape[0] == len(data.lon.values):
+        # Longitude is first.  It needs to be transposed.
+        var_name = data.name
+        var_data = data.values
+        new_var_data = np.transpose(var_data)
+        new_array = xr.DataArray(new_var_data,
+                                 coords=[data.lat.values, data.lon.values],
+                                 dims=['lat', 'lon'])
+        new_array.name = var_name
+        return new_array
+    else:
+        return data
+
+def get_urs_file(url):
+    username = 'godfrey4000'
+    password = 'J#bunan0'
+#    the_url = 'https://disc2.gesdisc.eosdis.nasa.gov:443/opendap/TRMM_L3/TRMM_3B42.7/1998/001/3B42.19980101.03.7.HDF'
+    session = setup_session(username, password, check_url=url)
+#    dataset = open_url(the_url, session=session)
+    ds = xr.open_dataset(url, decode_cf=False, engine='pydap', session=session)
+    return ds
