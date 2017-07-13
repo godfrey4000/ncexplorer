@@ -112,8 +112,8 @@ class TrivialAuthenticator(OpenIDAuthenticator):
     """Just for testing.  Do not use."""
     def _set_lm(self):
         self._lm = LogonManager()
-        self._username = 'godfrey4000@gmail.com'
-        self._password = 'J#bunan0'
+        self._username = ''
+        self._password = ''
         self._lm.logoff()
 
 
