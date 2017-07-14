@@ -59,7 +59,7 @@ class Plotter(object):
     def draw(self):
         """Render the data as contour levels on a map."""
         self._draw()
-        self._canvas.show()
+#        self._canvas.show()
 
     def clear(self):
         """Draws the map with continents, but no data.
@@ -69,7 +69,7 @@ class Plotter(object):
         self._canvas.clear()
         
         self._clear()
-        self._canvas.show()
+#        self._canvas.show()
     
     def update(self):
         """Calls clear() and then draw() to update the plot."""
@@ -311,6 +311,7 @@ class MapPlotter(Plotter):
         # chosen automatically.
         self._cs_levels = None
         self._cs_colors = None
+        self._colorbar = True
 
     def set_defaults(self):
         self.projection = PROJ_ORTHOGRAPHIC
@@ -342,6 +343,14 @@ class MapPlotter(Plotter):
             raise TypeError(msg)
         self._projector.center = center
         self._set_basemap()
+
+    @property
+    def colorbar(self):
+        return self._colorbar
+
+    @colorbar.setter
+    def colorbar(self, colorbar_on):
+        self._colorbar = colorbar_on
 
     @property
     def contour_colors(self):

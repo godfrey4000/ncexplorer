@@ -111,7 +111,8 @@ class Projector(object):
     # implemented there.
     def set_basemap(self, ax):
         """Sets the projection and the region for the map."""
-        pass
+        self._map = self._set_basemap(ax)
+        return self._map
 
 
 class ProjOrthographic(Projector):
@@ -128,7 +129,7 @@ class ProjOrthographic(Projector):
         else:
             self.center = center
 
-    def set_basemap(self, ax):
+    def _set_basemap(self, ax):
         mapobj = Basemap(ax=ax,
                       projection=self.projection,
                       lat_0=self.center[0],
@@ -159,7 +160,7 @@ class ProjLambertConformal(Projector):
             'lat_0': 50.0,
             'lon_0': -107.0}
 
-    def set_basemap(self, ax):
+    def _set_basemap(self, ax):
         mapobj = Basemap(ax=ax,
                          projection=self.projection,
                          width=self.params['width'],
@@ -189,7 +190,7 @@ class ProjLambertAzimuthal(Projector):
             'lat_0': 50.0,
             'lon_0': -107.0}
 
-    def set_basemap(self, ax):
+    def _set_basemap(self, ax):
         mapobj = Basemap(ax=ax,
                          projection=self.projection,
                          width=self.params['width'],
@@ -216,7 +217,7 @@ class ProjectorFlat(Projector):
             'urcrnrlat': 90.0,
             'urcrnrlon': 360}
         
-    def set_basemap(self, ax):
+    def _set_basemap(self, ax):
         mapobj = Basemap(ax=ax,
                       projection=self.projection,
                       llcrnrlat=self.corners['llcrnrlat'],

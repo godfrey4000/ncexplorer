@@ -42,13 +42,19 @@ class BasemapPlotter(MapPlotter):
         if pointsize is None:
             pointsize = 4
         
-        x, y = self._projector.map(lonlats[0], lonlats[1])
+        x, y = self._projector._map(lonlats[0], lonlats[1])
         self._map.plot(x, y, 'o', color=color, markersize=pointsize)
 
     def _draw(self, **kwargs):
-
-        # The variable to be plotted has been retained by the parent class.
-        var = self.dataset.data_vars['var']
+        
+        # It's possible to call draw() without the dataset being set as an
+        # attribute of the parent class.  so handle that case with an
+        # informative error.
+        try:
+            var = self.dataset.data_vars['var']
+        except AttributeError:
+            msg = "Has the dataset been set?"
+            raise AttributeError(msg)
 
         # TODO: The (x,y)-coordinate grid does not need to be recalculated
         # every time.  Check for compatibility, and recalculate only when
@@ -77,7 +83,10 @@ class BasemapPlotter(MapPlotter):
             self._map.drawparallels(lat.values)
             self._map.drawmeridians(lon.values)
 
-        self._map.colorbar(cs)
+        # FIXME: Once the reason for this causing an error in jupyter notebooks
+        # is discovered, this test can be removed.
+        if self._colorbar and self._canvas.colorbar_ok():
+            self._map.colorbar(cs)
 
 
 # This class serves the Tk desktop GUI application.

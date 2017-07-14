@@ -13,7 +13,8 @@ implementing these methods.
 """
 from ncexplorer.app import Application
 from ncexplorer.repository import NCXESGF
-from ncexplorer.plotter.canvas import PlottingCanvas
+#from ncexplorer.plotter.canvas import PlottingCanvas
+from ncexplorer.plotter.canvas import NotebookCanvas
 
 
 # Extract human understandable names from the variable property of datasets.
@@ -122,7 +123,8 @@ class BaseFrame(object):
         pass
 
     def _new_canvas(self):
-        canvas = PlottingCanvas(figsize=(6,6))
+#        canvas = PlottingCanvas(figsize=(6,6))
+        canvas = NotebookCanvas(figsize=(6,6))
         return canvas
         
     def plotter(self, **kwargs):

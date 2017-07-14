@@ -308,8 +308,8 @@ class NCXESGF(NCXRepository):
     # means to collect user name and password from the web GUI and the
     # desktop GUI.
     def _set_authenticator(self):
-        auth = TrivialAuthenticator(self._app)
-#        auth = OpenIDAuthenticator(self._app)
+#        auth = TrivialAuthenticator(self._app)
+        auth = OpenIDAuthenticator(self._app)
         return auth
 
     # Build a list of OpenDAP URLs that that match the the search string

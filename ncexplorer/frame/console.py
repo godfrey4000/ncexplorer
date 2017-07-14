@@ -9,6 +9,7 @@ Created on Mar 11, 2017
 @author: neil
 """
 import sys
+from getpass import getpass
 from ncexplorer.app import CmdApplication
 from ncexplorer.frame.base import BaseFrame, BaseProgressBar
 from ncexplorer.plotter.plotter import ScatterPlotter
@@ -146,6 +147,11 @@ class ConsoleFrame(BaseFrame):
         self._canvas.show()
             
         return plotter
+
+    def get_login_creds(self):
+        username = raw_input('Username: ')
+        password = getpass('Password: ')
+        return {'username': username, 'password': password}
 
     # The console implementation of this presumes that the user specified
     # the intended search parameters at job.search(...).  No need to prompt
