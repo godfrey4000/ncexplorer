@@ -1,7 +1,8 @@
 """
-The plotter module implements the base class Plotter.  mapPlotter is a subclass
-specialized for maps (displaying data on a map of the surface of the Earth).
-ScatterPlotter is a subclass for creating scatter plots.
+The plotter module implements the base class Plotter, the subclass MapPlotter
+and the subclass ScatterPlotter.  The MapPlotter class is specialized for maps,
+displaying a dataset on a projection of the surface of the Earth.
+ScatterPlotter is a subclass for a time series of a dataset variable.
 
 @created: Mar 28, 2017
 @author: neil
@@ -14,6 +15,7 @@ from ncexplorer.const import COLOR_CONTINENTS, COLOR_COASTLINES
 from matplotlib.ticker import FixedLocator
 import numpy as np
 import xarray as xr
+from numpy.core.defchararray import center
 
 
 class Plotter(object):
@@ -98,7 +100,6 @@ class Plotter(object):
     @property
     def charttypes(self):
         return ['Skatter', 'Map']
-
 
     # The utility methods for printing the object.  These methods are useful
     # when debugging.  The debugging window in eclipse calls the __repr__ and
@@ -273,7 +274,31 @@ class MapPlotter(Plotter):
     Attributes
     ----------
         center: (tuple) The latitude and longitude of the center of the map.
+        The orthographic projection ('ortho') will render the displayed map
+        with this position in the center.
         
+        continent: (dictionary) The Lambert conformal projection displays
+        entire continents, which are selected with this attribute.  The
+        dictionary contains the standard latitudes, central latitude and
+        longitude, and the vertical and horizontal extents in meters.
+
+        Predefined continents are defined in ncexplorer.const:
+            LAMBERT_NORTH_AMERICA
+            LAMBERT_SOUTH_AMERICA
+            LAMBERT_EUROPE
+            LAMBERT_ASIA
+            LAMBERT_AFRICA
+            LAMBERT_AUSTRALIA
+            LAMBERT_ANTARTICA
+
+        corners: (list of tuples) The lower left and upper right corners of a
+        map.  This attribute applies only to projections that render latitudes
+        and longitudes as horizontal and vertical lines.
+        
+        colorbar: (True or False)  When set to True, a legend is displayed
+        to the right of the map indicating the range of values corresponding
+        to the colors.  The default is True.
+
         contour_colors: (list of CSS color specifications: '#rrggbb') The
         colors used for the contours.
         
@@ -281,14 +306,18 @@ class MapPlotter(Plotter):
         
         dataset: (object) An xarray DataArray or Dataset containing the data
         to be plotted.
+
+        grid: (True or False) When set to True, the latitudes and longitudes
+        defined in the dataset are rendered as lines on the plot.  When set to
+        False, these values are not displayed.  The default is False.
         
-        projection: (string) The map projection.
+        projection: (string) The map projection.  A list of the supported
+        projections can be displayed with the projections attribute.
+        
+        projections: (list) The list of supported projections
     
     Methods
     -------
-        emptymap(center=None): Draws an map with just the continent outlines.
-        This method effectively clears the map.
-        
         savefig(filespec): Saves the plot as a PNG file to the location
         specified with filespec.
     """
@@ -320,6 +349,10 @@ class MapPlotter(Plotter):
         self._ax = self._canvas.add_map()
         return self._ax
 
+    # Many of the properties depend on a projector being set.  If it has not
+    # been set, this method is called to raise and error.
+    def _no_projector_exception(self):
+        raise TypeError("The projection has not been defined.")
 
     @property
     def center(self):
@@ -329,19 +362,38 @@ class MapPlotter(Plotter):
         The map that is drawn is centered on this latitude and longitude.
         """
         if self._projector is None:
-            msg = "Projection is undefined."
-            raise TypeError(msg)
+            self._no_projector_exception()
         
         return self._projector.center
 
     @center.setter
     def center(self, center):
-        # FIX ME: Add error handling error.  Raise and exception if the center
+        # FIX ME: Add error handling.  Raise an exception if the center
         # specified does not conform.
         if self._projector is None:
-            msg = "Projection is undefined.  Cannot set center location."
-            raise TypeError(msg)
+            self._no_projector_exception()
         self._projector.center = center
+        self._set_basemap()
+
+    @property
+    def continent(self):
+        """The continent for a Lambert conformal conic projection..
+        
+        The Lambert conformal projection is best suited for entire continents.
+        The continent is therefore a dictionary describing the standard
+        latitudes, central longitude and latitude and the height and width of
+        the region..
+        """
+        if self._projector is None:
+            self._no_projector_exception()
+        
+        return self._continent
+
+    @continent.setter
+    def continent(self, continent):
+        if self._projector is None:
+            self._no_projector_exception()
+        self._projector.continent = continent
         self._set_basemap()
 
     @property
@@ -389,15 +441,15 @@ class MapPlotter(Plotter):
         return True
     
     @property
+    def charttypes(self):
+        return ['']
+
+    @property
     def grid(self):
         """display the lines of latitude and longitude.
         
         The lines displayed correspond to the values for latitude and
-        longitude in the dataset    @property
-    def charttypes(self):
-        return ['']
-
-.  The grid lines are not displayed by default.
+        longitude in the dataset.  The grid lines are not displayed by default.
         """
         return self._showgrid
 

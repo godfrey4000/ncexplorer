@@ -18,6 +18,7 @@ from urlparse import urlparse
 from ncexplorer.config import CFG_ESGF_NODE
 from ncexplorer.config import CFG_ESGF_SEARCH_NODE
 from ncexplorer.config import CFG_ESGF_OPENID_NODE
+from ncexplorer.config import TRIVIAL_USERNAME, TRIVIAL_PASSWORD
 from ncexplorer.util import get_urs_file
 from fileinput import filename
 
@@ -89,10 +90,13 @@ class OpenIDAuthenticator(Authenticator):
 
         oid = self._oid()
 
-#        # FIX ME: Do we need bootstrap=True/
-#        self._lm.logon_with_openid(oid, self._password, bootstrap=True)
-#        return self._lm.is_logged_on()
-        self.session = setup_session(oid, self._password, check_url=url)
+        # The function setup_session only raises the most general exception,
+        # so there's no choice by to catch the base exception class.
+        try:
+            self.session = setup_session(oid, self._password, check_url=url)
+        except Exception as e:
+            print e
+            return False
         return True
         
 
@@ -112,8 +116,8 @@ class TrivialAuthenticator(OpenIDAuthenticator):
     """Just for testing.  Do not use."""
     def _set_lm(self):
         self._lm = LogonManager()
-        self._username = ''
-        self._password = ''
+        self._username = TRIVIAL_USERNAME
+        self._password = TRIVIAL_PASSWORD
         self._lm.logoff()
 
 
@@ -308,8 +312,8 @@ class NCXESGF(NCXRepository):
     # means to collect user name and password from the web GUI and the
     # desktop GUI.
     def _set_authenticator(self):
-#        auth = TrivialAuthenticator(self._app)
-        auth = OpenIDAuthenticator(self._app)
+        auth = TrivialAuthenticator(self._app)
+#        auth = OpenIDAuthenticator(self._app)
         return auth
 
     # Build a list of OpenDAP URLs that that match the the search string
@@ -371,6 +375,10 @@ class NCXESGF(NCXRepository):
         search API.  Then retrieve the data and make it available to the
         application as an xarray Dataset object.
         """
+        # ESGF frequently doesn't work.  Until I get a document from them
+        # that specifies a reliable API, I'm giving up.
+        msg = "ESGF has become too unreliable, so it's temporarily unsupported."
+        raise NotImplementedError(msg)
 #        login_successful = self._authenticator.login()
 #        if not login_successful:
 #            self._app.logger.warn("Failed to login.")
@@ -399,21 +407,21 @@ class NCXESGF(NCXRepository):
                                            engine='pydap',
                                            session=session)
                 msg = "Cleaning: {0}.".format(remotefile)
-            else:
-                msg = "Login failed."
-            log.debug(msg)
-            progressbar.update(msg)
-
 #            # Normalize it.
 #            # FIX ME: Consider moving this to another place.  This
 #            # operation is the biggest bottleneck of this searching and
 #            # retrieving data.
 #                self._clean(x)
 
-            temp_ds.append(xdataset)
-            msg = "Retained: {0}".format(filename)
-            log.debug(msg)
+                temp_ds.append(xdataset)
+                msg = "Retained: {0}".format(filename)
+                log.debug(msg)    
+                progressbar.update(msg)
                 
+            else:
+                msg = "Login failed."
+                print msg
+            log.debug(msg)
             progressbar.update(msg)
 
         # Don't stay logged on.

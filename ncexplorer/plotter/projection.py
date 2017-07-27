@@ -9,6 +9,7 @@ implemented in Matplotlib.pyplot.
 @author: neil
 """
 from ncexplorer.const import LOC_UCLA as UCLA
+from ncexplorer.const import LAMBERT_NORTH_AMERICA
 from mpl_toolkits.basemap import Basemap
 
 
@@ -141,26 +142,34 @@ class ProjOrthographic(Projector):
 class ProjLambertConformal(Projector):
     """A Projector class for the Lambert conformal projection.
     
-    The default size is 12,000 km wide by 9,000 km high and an ellipsoid of
-    approximately 6378 km by 6357 km.
+    This projection is best suited for continents.  North America is the
+    default.
     """
     def __init__(self):
         Projector.__init__(self, PROJ_LAMBERT_CONFORMAL)
 
-        # FIXME: Calculate these parameters from a simpler request such as a
-        # center and a size.
+        # Difficult to specify the parameter for a Lambert conformal
+        # projection.  So instead, just support specifying continents.
+        # North America is the default.
+        self.continent = LAMBERT_NORTH_AMERICA
+        self._calculate_params()
+
+    # Setup the parameters.
+    def _calculate_params(self):
         self.params = {
-            'width': 12000000,
-            'height': 9000000,
+            'width': self.continent['width'],
+            'height': self.continent['height'],
             'rsphere': (6378137.00, 6356752.3142),
             'resolution': 'l',
             'area_thresh': 1000.0,
-            'lat_1': 45.0,
-            'lat_2': 55.0,
-            'lat_0': 50.0,
-            'lon_0': -107.0}
-
+            'lat_1': self.continent['standard_lat_S'],
+            'lat_2': self.continent['standard_lat_N'],
+            'lat_0': self.continent['center_lat'],
+            'lon_0': self.continent['center_lon']
+        }
+ 
     def _set_basemap(self, ax):
+        self._calculate_params()
         mapobj = Basemap(ax=ax,
                          projection=self.projection,
                          width=self.params['width'],

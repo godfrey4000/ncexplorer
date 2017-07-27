@@ -128,12 +128,15 @@ class BaseFrame(object):
         return canvas
         
     def plotter(self, **kwargs):
-        """Returns a new instance of the plotter object.
+        """Returns a new instance of a plotter object.
         
         Parameters
         ----------
-        plottype : string
-            The plottype can either be 'map', or 'scatter'.
+        charttype : string
+            The charttype can either be 'map', or 'scatter'.  A map plotter
+            manages the display of data on a projection of the Earth.  The
+            data is displayed as colored contour levels.  A scatter plotter
+            manages the display of time-series data.
         """
         return self._plotter(**kwargs)
 

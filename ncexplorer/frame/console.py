@@ -125,28 +125,28 @@ class ConsoleFrame(BaseFrame):
                 print varline
             i += 1
 
-    def _plotter(self, **kwargs):
-        if 'charttype' in kwargs:
-            charttype = kwargs['charttype']
-            if charttype.upper() == 'SCATTER':
-                plotter = ScatterPlotter()
-            elif charttype.upper() == 'MAP':
-                plotter = BasemapPlotter(**kwargs)
-            else:
-                msg = "Unrecognized chart type: {0}.".format(charttype)
-                raise RuntimeError(msg)
-        else:
-            plotter = BasemapPlotter(**kwargs)
-
-        # Let the plotting instance have a reference to this.  The plotting
-        # instance needs the figure on the canvas managed by this.
-        plotter.set_canvas(self._canvas)
-        plotter.set_defaults()
-        
-        # Launch the canvas window.
-        self._canvas.show()
-            
-        return plotter
+#    def _plotter(self, **kwargs):
+#        if 'charttype' in kwargs:
+#            charttype = kwargs['charttype']
+#            if charttype.upper() == 'SCATTER':
+#                plotter = ScatterPlotter()
+#            elif charttype.upper() == 'MAP':
+#                plotter = BasemapPlotter(**kwargs)
+#            else:
+#                msg = "Unrecognized chart type: {0}.".format(charttype)
+#                raise RuntimeError(msg)
+#        else:
+#            plotter = BasemapPlotter(**kwargs)
+#
+#        # Let the plotting instance have a reference to this.  The plotting
+#        # instance needs the figure on the canvas managed by this.
+#        plotter.set_canvas(self._canvas)
+#        plotter.set_defaults()
+#        
+#        # Launch the canvas window.
+#        self._canvas.show()
+#            
+#        return plotter
 
     def get_login_creds(self):
         username = raw_input('Username: ')
@@ -161,7 +161,8 @@ class ConsoleFrame(BaseFrame):
         return ""
 
     # This is a convenience method for the Console app only.
-    def new_plotter(self, **kwargs):
+#    def new_plotter(self, **kwargs):
+    def _plotter(self, **kwargs):
         """Create a new canvas with a single scatter or basemap figure.
         
         This method is only available on the ConsoleFrame."""

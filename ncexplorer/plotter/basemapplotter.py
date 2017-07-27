@@ -55,6 +55,7 @@ class BasemapPlotter(MapPlotter):
         except AttributeError:
             msg = "Has the dataset been set?"
             raise AttributeError(msg)
+            
 
         # TODO: The (x,y)-coordinate grid does not need to be recalculated
         # every time.  Check for compatibility, and recalculate only when
@@ -70,6 +71,11 @@ class BasemapPlotter(MapPlotter):
         try:
             data, cyclic_lon = addcyclic(var, lon)
         except ValueError:
+            data = var
+            cyclic_lon = lon
+        except IndexError:
+            # These seems to have started with a new version of a library.
+            # FIXME: Find out why this exception occurs.
             data = var
             cyclic_lon = lon
         
