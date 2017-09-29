@@ -29,8 +29,7 @@ class PlottingCanvas(object):
         self._figure.clf()
 
     def show(self):
-#        self._figure.show()
-        pass
+        self._figure.show()
 
     def __unicode__(self):
         pretty = []
@@ -62,5 +61,4 @@ class NotebookCanvas(object):
         pass
 
     def show(self):
-#        plt.show(block=False)
         plt.ion()

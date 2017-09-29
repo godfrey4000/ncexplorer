@@ -12,6 +12,7 @@ __author__ = "Yannick Copin <yannick.copin@laposte.net>"
 
 import numpy as NP
 import matplotlib.pyplot as PLT
+from xarray import DataArray
 
 class TaylorDiagram(object):
     """Taylor diagram: plot model standard deviation and correlation
@@ -28,8 +29,23 @@ class TaylorDiagram(object):
         from matplotlib.projections import PolarAxes
         import mpl_toolkits.axisartist.floating_axes as FA
         import mpl_toolkits.axisartist.grid_finder as GF
+        
+        # The reference should be a singleton array, preferably with
+        # an attribute 'units'.  The standard deviation axis will be
+        # presented "Standard deviation [units]" below.  If units are
+        # not given, then "Standard deviation [???]".
+        if type(refstd) is not DataArray:
+            raise KeyError("The first argument is the reference " +
+                           "standard deviation.  It must be a singleton " +
+                           "array.")
+        
+        # Use [???] if units is not defined.  We want it to work, but be ugly
+        # to encourage the user to include units.
+        if 'units' not in refstd.attrs:
+            refstd.attrs['units'] = '???'
+        std_axis_text = "Standard deviation [{}]".format(refstd.attrs['units'])
 
-        self.refstd = refstd            # Reference standard deviation
+        self.refstd = refstd.item()        # Reference standard deviation
 
         tr = PolarAxes.PolarTransform()
 
@@ -64,7 +80,7 @@ class TaylorDiagram(object):
         ax.axis["top"].label.set_text("Correlation")
 
         ax.axis["left"].set_axis_direction("bottom") # "X axis"
-        ax.axis["left"].label.set_text("Standard deviation")
+        ax.axis["left"].label.set_text(std_axis_text)
 
         ax.axis["right"].set_axis_direction("top")   # "Y axis"
         ax.axis["right"].toggle(ticklabels=True)
@@ -79,7 +95,7 @@ class TaylorDiagram(object):
         self.ax = ax.get_aux_axes(tr)   # Polar coordinates
 
         # Add reference point and stddev contour
-        print "Reference std:", self.refstd
+        # print "Reference std:", self.refstd
         l, = self.ax.plot([0], self.refstd, 'k*',
                           ls='', ms=10, label=label)
         t = NP.linspace(0, NP.pi/2)

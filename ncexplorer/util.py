@@ -14,6 +14,147 @@ from pydap.client import open_url
 from pydap.cas.urs import setup_session
 
 
+# Grid definitions
+class Grid(object):
+    """A latitude-longitude grid.
+
+    Parameters
+    ----------
+        array (DataArray) optional: If a DataArray is passed as a parameter,
+        then all other parameters are ignored.  The DataArray is presumed to
+        define a latitude-longitude grid, and that is used.
+        
+        lat, lon (list) optional: A numpy array of the specific values for the
+        latitudes and longitudes.
+
+        name (str) optional: A short string describing the grid.  If a name is
+        not passed, a default name is constructed from the cell widths.  This
+        however is redundant.  For example, [-90, -60, -30, 0, 30, 60, 90] and
+        [-75, -45, -15, 15, 45, 75] would both be 015x*.
+    
+    The python str() function will return a string nxm, where n (m) is the
+    distance between lines of latitude (longitude).
+
+    Latitudes
+    ---------
+    The range of latitudes is [-90, 90].  The list of latitudes may either
+    include both -90 and 90 (the north and south poles) or exclude them.
+
+    Longitudes
+    ----------
+    The range of longitudes is [-180, 180].
+    """
+    def __init__(self, array=None, lat=None, lon=None, name=None):
+        
+        # The preference is to use the grid from a specified existing
+        # DataArray.
+        if array is not None:
+            if type(array) is not xr.DataArray:
+                msg = "The parameter array must be an xarray DataArray."
+                raise TypeError(msg)
+
+            self._lats = array.lat.values
+            self._lons = array.lon.values
+
+        # Specifying the latituds and longitudes explicitly is ultimately the
+        # easiest and most reliable way, due primarlly to the redundancy:
+        # [-90, 0, 90] and (-45, 45] are both grids with 90-degree widths.
+        else:
+            self._lats = lat
+            self._lons = lon
+
+        # Determining a name from the latitudes and longitudes is complicated
+        # from too many choices for how to form the name.  Best is to let the
+        # the definer specify a name.
+        if name is not None:
+            self.name = name
+        else:
+            self.name = self._name()
+
+    # The default name is GRID_###, where ### is the height of the latitude
+    # spacing in tenths of a degree.  Most grids are defined such that the
+    # spacing between lines of latitude and longitude are the same.
+    def _name(self):
+        latitude_range = self._lats[-1] - self._lats[0]
+        
+        # Subtract 1 from the length because [-90, 0, 90] has three latitudes
+        # defined, but two spaces between the latitudes.
+        latitude_height = latitude_range/(len(self._lats) - 1)
+        if 90 in self._lats:
+            return "GRID_{:03d}_{}".format( int(10*latitude_height),
+                                            len(self._lats) )
+        else:
+            return "GRID_{:03d}".format( int(10*latitude_height) )
+
+    @property
+    def lat(self):
+        return self._lats
+
+    @property
+    def lon(self):
+        return self._lons
+
+    @property
+    def latlen(self):
+        return len(self._lats)
+
+    @property
+    def lonlen(self):
+        return len(self._lons)
+
+    @property
+    def cartesian(self):
+        ret = cartesian(( [self._lats, self._lons] ))
+        return ret
+    
+    # An iterator to iterate through the grid points.
+    def grid_points(self):
+        for i in range(0, self.latlen):
+            for j in range(0, self.lonlen):
+                yield i,j
+
+    # Create a string nxm, where n (m) is the distance in degrees between lines
+    # of latitude (longitude).
+    def __str__(self):
+        # latitudes may or may not exclude the pole.  The numerator for the
+        # latitude calculation must consider this.  Furthermore, the because
+        # the latitudes have end points, the number of spaces is one less than
+        # the number of latitudes.
+        width_lat = (self._lats[-1] - self._lats[0])/(self.latlen - 1)
+
+        # The longitudes may wrap, or not.  Typically, for small regions, the
+        # longitude does not wrap.  Here, if the distance between the two
+        # longitude extremes is close to the spacing, we assume the longitudes
+        # wrap.  This is not perfect.
+        wrap_space = self._lons[0] + 360 - self._lons[-1]
+        common_space = self._lons[1] - self._lons[0]
+        wrap_case = (wrap_space < 1.1*common_space)
+        if wrap_case: 
+            width_lon = 360.0/self.lonlen
+        else:
+            width_lon = (self._lons[-1] - self._lons[0])/(self.lonlen - 1)
+        
+        # Let Python pick the number of decimal places.  If there are many,
+        # that usually means a mistake has been made.
+        ret = "{}x{}".format(width_lat, width_lon)
+        return ret
+
+
+# Predefined grids.  The convention is GRID_### where ### represents the
+# width of the cell in tenths of degrees.  For the grids that do include
+# the poles, GRID_###_# where the second number indicates the number of
+# latitudes
+GRID_025 = Grid(lat=np.linspace(-88.75, 88.75, 72),
+                lon=np.linspace(-178.75, 178.75, 144),
+                name='GRID_025')
+GRID_100 = Grid(lat=np.linspace(-85, 85, 18),
+                lon=np.linspace(-175, 175, 36),
+                name="GRID_100")
+GRID_300 = Grid(lat=np.linspace(-75, 75, 6),
+                lon=np.linspace(-165, 165, 12),
+                name='GRID_300')
+
+
 # Thanks to hernamesbarbara on github for this function.
 #
 # Googling did not find a built-in function, nor a function in the Numpy and
@@ -218,120 +359,156 @@ def regrid(variables, lattice='union', tl=None, pl=None):
 
     return newvars
 
-def simple_regrid(var, progressbar, likevar=None):
-    """Regrids to 1x1 a variable of lat, lon only"""
+def simple_regrid(var, grid=None, likevar=None, progressbar=None):
 
-    if likevar is None:
-        coords_lat = np.linspace(-90, 90, 72)
-        coords_lon = np.linspace(0, 360 - 2.5, 144)
+    # Check for regrid capability.  If there are more than three dimensions,
+    # it's not feasible yet.  If there are exactly three, the third must be
+    # time.
+    have_time_dim = (len(var.shape) == 3 and 'time' in var.dims)
+
+    if grid is not None:
+        to_coords = grid
+    elif likevar is not None:
+        to_coords = Grid(array=likevar)
     else:
-        # The lat and lon dimensions are inherited from the target lat-lon
-        # grid.  The time dimension to be unchanged, so it is inherited from
-        # the original var.
-        # FIXME:  There may not be a time coordinate.
-        coords_lat = likevar['lat'].values
-        coords_lon = likevar['lon'].values
-        coords_time = var['time'].values
+        to_coords = GRID_025
     
     # Display the ranges involved in the regrid, for confidence.
-    varlatr = "[{0},{1}]".format(
-        var.lat.values[0], var.lat.values[len(var.lat) - 1])
-    varlonr = "[{0},{1}]".format(
-        var.lon.values[0], var.lon.values[len(var.lon) - 1])
-    tgtlatr = "[{0},{1}]".format(
-        coords_lat[0], coords_lat[len(coords_lat) - 1])
-    tgtlonr = "[{0},{1}]".format(
-        coords_lon[0], coords_lon[len(coords_lon) - 1])
-    print "The regrid will by from {0} X {1} --> {2} X {3}.".format(
-        varlatr, varlonr, tgtlatr, tgtlonr)
-
-    # FIXME:  This needs to be a more general routine.  Testing for the range
-    # being used needs to be more robust.
-    # If the range of longitudes is (-180,180), take the variable apart and
-    # rebuild it with the range (0,360).
-    if var.lon.values[0] < -10.0:
-        blankdata = np.empty( (len(var.time), len(var.lon), len(var.lat)) )
-        blankdata.fill(np.NaN)
-        blanklon = []
-        usevar = None
-        i = 0
-        for l in var.lon.values:
-            blanklon.append(math.fmod(l + 360, 360))
-            blankdata[:,i,:] = var.isel(lon=i)
-            i =+ 1
-        usevar = xr.DataArray(blankdata,
-                              coords={'time': var.time,
-                                      'lon': blanklon,
-                                      'lat': var.lat},
-                              dims=['time', 'lon', 'lat'])
-    else:
-        usevar = var
-        
+    from_coords = Grid(array=var)
+    print "Regridding from {0} to {1}.".format(str(from_coords),
+                                               str(to_coords))
 
     # Impose a Delaunay triangulation and an indexing structure
     # on the variable.
-    varcoords = cartesian(( [usevar['lat'], usevar['lon']] ))
+    varcoords = from_coords.cartesian
     vartri = Delaunay(varcoords)
 
     # Create a DataArray object with the new shape filled with np.NaNs.  This
     # will be filled with values interpolation from the variable var.
-    blankdata = np.empty( (len(coords_lat), len(coords_lon), len(coords_time)) )
-    blankdata.fill(np.NaN)
-    newvar = xr.DataArray(blankdata,
-                          coords={'lat': coords_lat,
-                                  'lon': coords_lon,
-                                  'time': coords_time},
-                          dims=['lat', 'lon', 'time'])
-
-    # Carry over the appropriate attributes.  The name attribute is not in the
-    # attrs dictionary.  But it's necessary; it's the variables name.
-    newvar.attrs = var.attrs
-    newvar.name = var.name
+    if have_time_dim:
+        blankdata = np.empty((len(var.time),
+                              to_coords.latlen,
+                              to_coords.lonlen))
+        blankdata.fill(np.NaN)
+        newvar = xr.DataArray(blankdata,
+                              name=var.name,
+                              attrs=var.attrs,
+                              coords={'time': var.time,
+                                      'lat': to_coords.lat,
+                                      'lon': to_coords.lon},
+                              dims=['time', 'lat', 'lon'])
+    else:
+        blankdata = np.empty((to_coords.latlen, to_coords.lonlen))
+        blankdata.fill(np.NaN)
+        newvar = xr.DataArray(blankdata,
+                              name=var.name,
+                              attrs=var.attrs,
+                              coords={'lat': to_coords.lat,
+                                      'lon': to_coords.lon},
+                              dims=['lat', 'lon'])
     
-    # Set the missing_value attribute to 'NaN (numpy)'.
-    newvar.attrs['missing_value'] = 'NaN (numpy)'
+    # Set the missing_value attribute to 'NaN (numpy)'.  Set the grid attribute
+    # to the new grid.
+    newvar.attrs['missing_value'] = 'nan'
+    newvar.attrs['grid'] = str(to_coords)
 
     # Show progress at the latitudes.  Otherwise it's too many.
-    progressbar.start( len(coords_lat)*len(coords_lon) )
+    if progressbar is not None:
+        progressbar.start(to_coords.latlen*to_coords.lonlen)
 
     # Iterate the new variable's grid, calculating the value from an
     # interpolation of the simplices in the original variable.
     # FIX ME: The interpolation function is calculated for as many points of
     # the new variable that fall in a single simplex.  It only needs to be
     # calculated once per simplex.
-    for i in range(0, len(coords_lat)):
-        for j in range(0, len(coords_lon)):
+    for i,j in to_coords.grid_points():
         
-            # These steps produce the i-th simplex (triangle) in the variable.
-            lattice_point = [coords_lat[i], coords_lon[j]]
-            simplex_number = vartri.find_simplex(lattice_point)
-            if simplex_number >= 0:
-                simplex_points = vartri.simplices[simplex_number]
-                simplex = vartri.points[simplex_points]
-                
-                # These steps produce the n-values of the variable for the n-simplex.
-                # Since the simplices are triangles, these steps produce three values.
-                #
-                # Do this for each value of time.
-                for t in range(0, len(coords_time)):
+        # These steps produce the i-th simplex (triangle) in the variable.
+        lattice_point = [to_coords.lat[i], to_coords.lon[j]]
+        simplex_number = vartri.find_simplex(lattice_point)
+        if simplex_number >= 0:
+            simplex_points = vartri.simplices[simplex_number]
+            simplex = vartri.points[simplex_points]
+            
+            # These steps produce the n-values of the variable for the
+            # n-simplex.  Since the simplices are triangles, these steps
+            # produce three values.
+            if have_time_dim:
+                for t in range(0, len(var.time)):
+#                for t in range(0, 3):
                     vals = []
                     for k, vertex in enumerate(simplex):
-                        val_t = usevar.sel(lat=vertex[0], lon=vertex[1])
-                        val = val_t.isel(time=t)
+                        val = var.sel(time=var.time[t],
+                                      lat=vertex[0],
+                                      lon=vertex[1])
                         vals.append(val)
-            
-                    # These steps produce the function f that calculates the interpolated
-                    # value anywhere in the simplex (triangle), and then calculates that
-                    # value at the lattice point, and assigns it.
+        
+                    # These steps produce the function f that calculates the
+                    # interpolated value anywhere in the simplex (triangle),
+                    # and then calculates that value at the lattice point, and
+                    # assigns it.
                     f = LinearNDInterpolator(simplex, vals)
                     x = f(lattice_point)
-                    newvar[i,j, t] = x 
-        
-            # Show progress.
-            msg = "Calculated values for ({:2.3f}, {:2.3f}).".format(coords_lat[i], coords_lon[j])
+                    newvar[t, i, j] = x 
+            else:
+                vals = []
+                for k, vertex in enumerate(simplex):
+                    val = var.sel(lat=vertex[0], lon=vertex[1])
+                    vals.append(val)
+    
+                # These steps produce the function f that calculates the
+                # interpolated value anywhere in the simplex (triangle), and
+                # then calculates that value at the lattice point, and assigns
+                # it.
+                f = LinearNDInterpolator(simplex, vals)
+                x = f(lattice_point)
+                newvar[i, j] = x 
+    
+        # Show progress.
+        if progressbar is not None:
+            msg = ("Calculated values for ({:2.3f}, {:2.3f}).").format(
+                to_coords.lat[i], to_coords.lon[j])
             progressbar.update(msg)
 
     return newvar
+
+def standardize_latlon(var):
+    """Standardizes the latitudes and longitudes.
+    
+    Returns the data in a DataArray where the latitudes range from [-90,90] and
+    the longitudes range from (-180, 180].
+    """
+    # Ensure the variable order is lat,lon, time.
+    retvar = var.transpose('lat', 'lon', 'time')
+    
+    if retvar.lat[1] - var.lat[0] < 0:
+        data = retvar[::-1,:,:]
+        lats = retvar.lat[::-1]
+    else:
+        data = retvar[:,:,:]
+        lats = retvar.lat
+
+    need_longitude_roll = (max(retvar.lon) > 180)
+    if need_longitude_roll:
+        lons = np.mod(retvar.lon + 180, 360) - 180
+    else:
+        lons = retvar.lon
+    
+    retvar = xr.DataArray(data,
+                          name=var.name,
+                          attrs=var.attrs,
+                          coords={'lat': lats, 'lon': lons, 'time': var.time},
+                          dims=['lat', 'lon', 'time'])
+    
+    # The negative longitudes may be at the nd of the lon array.  This moves
+    # them to the front.
+    if need_longitude_roll:
+        negvals = np.where(retvar.lon.values < 0)
+        if negvals[0].size > 0:
+            offset = negvals[0][0]
+            retvar = retvar.roll(lon=offset)
+
+    return retvar
 
 def transpose_var(data):
     """Determines if the data in an Xarray DataArray is transposed.

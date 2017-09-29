@@ -18,10 +18,6 @@ from ncexplorer.plotter.plotter import MapPlotter
 # This class servers the console app.
 class BasemapPlotter(MapPlotter):
     
-#    def __init__(self, **kwargs):
-#
-#        MapPlotter.__init__(self, **kwargs)
-
     # this method requires that the pyplot axes has been already created.
     def _set_basemap(self):
         self._map = self._projector.set_basemap(self._ax)
@@ -91,8 +87,8 @@ class BasemapPlotter(MapPlotter):
 
         # FIXME: Once the reason for this causing an error in jupyter notebooks
         # is discovered, this test can be removed.
-        if self._colorbar and self._canvas.colorbar_ok():
-            self._map.colorbar(cs)
+#        if self._colorbar and self._canvas.colorbar_ok():
+        self._map.colorbar(cs)
 
 
 # This class serves the Tk desktop GUI application.

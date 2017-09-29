@@ -11,7 +11,8 @@ from ncexplorer.plotter.projection import SUPPORTED_PROJECTIONS
 from ncexplorer.plotter.projection import PROJECTION_DESCRIPTIONS
 from ncexplorer.plotter.projection import PROJ_ORTHOGRAPHIC
 from ncexplorer.plotter.projection import new_projector
-from ncexplorer.const import COLOR_CONTINENTS, COLOR_COASTLINES 
+from ncexplorer.plotter.plotutils import extract_plot_titles
+from ncexplorer.const import COLOR_CONTINENTS, COLOR_COASTLINES, LOC_UCLA
 from matplotlib.ticker import FixedLocator
 import numpy as np
 import xarray as xr
@@ -29,16 +30,26 @@ class Plotter(object):
     """
     # This implementation requires that subclasses of this class implement a
     # setter method for the dataset attribute.
-    def __init__(self, **kwargs):
+    def __init__(self, frame, canvas, **kwargs):
         
-        if 'dataset' in kwargs and kwargs['dataset'] is not None:
-            self.dataset = kwargs['dataset']
-        
-        # The subclass must set the charttype.
+        # The subclass sets the chart type.
+        self._frame = frame
         self.charttype = 'None'
         self._title = None
+        self._set_charttype()
+        
+        # Attach to the canvas.
+        self.set_canvas(canvas)
 
-    def set_defaults(self):
+        # The initialization is quite specialized to the subclass.  This
+        # mechanism ensures that all plotting objects are instantiated with
+        # the same signature, and that the frame gets set.
+        self._init(**kwargs)
+
+    def _set_charttype(self):
+        pass
+
+    def _init(self):
         pass
 
     def set_canvas(self, canvas):
@@ -170,7 +181,7 @@ class Plotter(object):
                 newds = var.to_dataset(name='var')
                 self._dataset = newds
             
-        # The dataset has more than one variable, then it must have a avariable
+        # The dataset has more than one variable, then it must have a variable
         # 'var', and that is the one to be plotted.  The legitimate instance of
         # this case is when data plots are saved in Datasets.
         elif not 'var' in dataobj.data_vars:
@@ -187,6 +198,13 @@ class Plotter(object):
             if self._validate_dimensions(var):
                 self._dataset = dataobj
             
+        # Set the title.  The 'title' attribute is a 0-dimensional array.
+        plot_titles = extract_plot_titles(self._dataset)
+        title = plot_titles['title']
+        var_headline = "{0} [{1}]".format(plot_titles['name'],
+                                          plot_titles['units'])
+        self._canvas._figure.suptitle(title, y=0.90)
+        self._canvas._figure.text(0, 0.75, var_headline)
         return
 
 
@@ -199,20 +217,12 @@ class ScatterPlotter(Plotter):
         dataset: (object) An xarray DataArray or Dataset containing the data
         to be plotted.
     """
-    def __init__(self, dataset=None):
-        
-        # The plotter subclasses should call the parent, first thing.
-        Plotter.__init__(self, dataset=dataset)
+    def _set_charttype(self):
         self.charttype = 'Scatter'
         
     def _add_plot(self):
         self._ax = self._canvas.add_map()
         return self._ax
-#        
-#        self.figure = plt.figure(figsize=(8,2))
-#        self.ax = self.figure.add_axes([0.1, 0.1, 0.88, 0.88])
-#        self.ax.minorticks_on()
-#        pass
 
     # The ScatterPlotter needs the time dimension.
     def _validate_dimensions(self, var):
@@ -305,7 +315,8 @@ class MapPlotter(Plotter):
         contour_levels: (list) The break points for the contour levels.
         
         dataset: (object) An xarray DataArray or Dataset containing the data
-        to be plotted.
+        to be plotted.        to_coords = Grid(73, 144)
+
 
         grid: (True or False) When set to True, the latitudes and longitudes
         defined in the dataset are rendered as lines on the plot.  When set to
@@ -321,30 +332,31 @@ class MapPlotter(Plotter):
         savefig(filespec): Saves the plot as a PNG file to the location
         specified with filespec.
     """
-    def __init__(self, dataset=None):
-        
-        # The plotter subclasses should call the parent, first thing.
-        Plotter.__init__(self, dataset=dataset)
+    def _set_charttype(self):
         self.charttype = 'Map'
-        
-        # NOTE: The properties being set here are actually being set by the
-        # setter methods defined below.
-        self._projector = None
-        self._showgrid = False
+
+    def _init(self):
         
         self._color_continents = COLOR_CONTINENTS
         self._color_coastlines = COLOR_COASTLINES
         
-        # The colors and contour levels are set to none, so by default, they
-        # will be chosen automatically by the basemap contourf method.
-        # chosen automatically.
-        self._cs_levels = None
+        # Inherit all the default plotting parameters from the frame.
+        self._projector = None
+        if self._frame._projection is not None:
+            self.projection = self._frame._projection
+        else:
+            self.projection = PROJ_ORTHOGRAPHIC
+
+        self.center = self._frame._center
+        self.continent = self._frame._continent
+        self.corners = self._frame._corners
+        self.contour_levels = self._frame._contour_levels 
+
+        # Defaults.
+        self._showgrid = False
         self._cs_colors = None
-        self._colorbar = True
-
-    def set_defaults(self):
-        self.projection = PROJ_ORTHOGRAPHIC
-
+        self._colorbar = None
+        
     def _add_plot(self):
         self._ax = self._canvas.add_map()
         return self._ax
@@ -368,6 +380,9 @@ class MapPlotter(Plotter):
 
     @center.setter
     def center(self, center):
+        if center is None:
+            return
+
         # FIX ME: Add error handling.  Raise an exception if the center
         # specified does not conform.
         if self._projector is None:
@@ -387,14 +402,35 @@ class MapPlotter(Plotter):
         if self._projector is None:
             self._no_projector_exception()
         
-        return self._continent
+        return self._projector.continent
 
     @continent.setter
     def continent(self, continent):
+        if continent is None:
+            return
+
         if self._projector is None:
             self._no_projector_exception()
         self._projector.continent = continent
         self._set_basemap()
+
+    @property
+    def corners(self):
+        """The lower left and upper right corners of a rectangular projection.
+        """
+        if self._projector is None:
+            self._no_projector_exception()
+        return self._projector.corners
+
+    @corners.setter
+    def corners(self, corners):
+        if corners is None:
+            return
+
+        if self._projector is None:
+            self._no_projector_exception()
+        self._projector.corners = corners
+        self._set_basemap()        
 
     @property
     def colorbar(self):

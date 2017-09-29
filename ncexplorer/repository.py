@@ -512,8 +512,14 @@ class LocalDirectoryRepository(NCXRepository):
         self._urls.sort()
 
     def _push(self, progressbar, ds):
-        # The filename comes from the data.
-        filename = ds.filename
+        # Form the filename from the dataset metadata:
+        # program.product.version.time_frequency.grid.nc
+        filename = "{0}.{1}.{2}.{3}.{4}.nc".format(
+            ds.attrs['program'] if 'program' in ds.attrs else '',
+            ds.attrs['product'] if 'product' in ds.attrs else '',
+            ds.attrs['version'] if 'version' in ds.attrs else '',
+            ds.attrs['time_frequency'] if 'time_frequency' in ds.attrs else '',
+            ds.attrs['grid'] if 'grid' in ds.attrs else '')
         filespec = self._path + '/' + filename
         ds.to_netcdf(filespec)
         

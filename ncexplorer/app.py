@@ -6,6 +6,7 @@ Created on Nov 28, 2016
 import sys
 import logging
 import urllib2
+import xarray as xr
 from urlparse import urlparse
 from ncexplorer.config import repositories
 from repository import NCXESGF, NCXURS, LocalDirectoryRepository
@@ -479,11 +480,29 @@ class Application(object):
 
     # Utility Functions.
     # This first method should be a method of the xarray object.
-    def regrid(self, var, likevar=None):
+    def regrid(self, var, grid=None, likevar=None):
         # This can take a while, especially if there is a lot of time data.
-        progressbar = self._frame.progressbar('vars')
-        newvar = simple_regrid(var, progressbar, likevar)
-        return newvar
+        # If there are more than three dimensions, don't even try.  This case
+        # will require a very efficient algorithm, and most likely parallel
+        # processing..
+        if len(var.shape) > 3:
+            raise NotImplemented(
+                "Regridding a DataArray with more than latitude, longitude " +
+                "and time is not supported.")
+
+
+        if len(var.shape) == 2 or len(var.shape) == 3:
+            # Presume the dimensions are latitude, longitude and optionally
+            # time.
+            progressbar = self._frame.progressbar('vars')
+            newvar = simple_regrid(var,
+                                   grid=grid,
+                                   likevar=likevar,
+                                   progressbar=progressbar)
+            return newvar
+
+        # The DataArray can't be regridded if we get here.
+        raise NotImplemented("Cannot regrid DataArray")
 
 
 # The only purpose for a subclass of the Application class is to implement

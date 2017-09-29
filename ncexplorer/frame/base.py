@@ -79,7 +79,23 @@ class BaseFrame(object):
         The title for the application.  The title is displayed in logs and
         on the window title bar, among other places.
     """
-    def __init__(self, title):
+    def __init__(self, title,
+                 # Optional graphing parameters can be included so that
+                 # multiple plots have the same center, projection, colors,
+                 # scale, etc.
+                 center=None,
+                 continent=None,
+                 corners=None,
+                 projection=None,
+                 contour_levels=None):
+
+        # Global efaults.
+        self._center = center
+        self._continent = continent
+        self._corners = corners
+        self._projection = projection
+        self._contour_levels=contour_levels
+
         # These methods set the UI objects that the application will call.
         self._progressbar = self._set_progressbar()
         
@@ -87,10 +103,10 @@ class BaseFrame(object):
         # is the main controller -- the heart of the application.
         self._app = self._set_application(title)
         
-        # The frame subclass must create the canvas.  The details of the
-        # canvas implementation could relate to a web browser, a desktop
-        # X window, etc.
-        self._canvas = self._new_canvas()
+#        # The frame subclass must create the canvas.  The details of the
+#        # canvas implementation could relate to a web browser, a desktop
+#        # X window, etc.
+#        self._canvas = self._new_canvas()
 
     # These methods constitute the interface.
     def _set_application(self, title):
@@ -123,9 +139,7 @@ class BaseFrame(object):
         pass
 
     def _new_canvas(self):
-#        canvas = PlottingCanvas(figsize=(6,6))
-        canvas = NotebookCanvas(figsize=(6,6))
-        return canvas
+        pass
         
     def plotter(self, **kwargs):
         """Returns a new instance of a plotter object.
@@ -302,8 +316,8 @@ class BaseFrame(object):
         self._display_variables(payload)
 
     # Utility functions.  These just call the corresponding app method.
-    def regrid(self, var, likevar=None):
-        return self._app.regrid(var, likevar)
+    def regrid(self, var, grid=None, likevar=None):
+        return self._app.regrid(var, grid, likevar)
 
     # This method must be overridden.
     def mainloop(self):

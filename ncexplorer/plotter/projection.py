@@ -217,22 +217,40 @@ class ProjectorFlat(Projector):
     
     def __init__(self, projection):
         Projector.__init__(self, projection)
+        
+        # The internal corners property is a dicationaary.
+        self._corners = {}
 
         # FIXME: It would be nice to go from 180 to 180, but that either
         # produces a div/0 exception, or (-180, 180) paints only half the map.
-        self.corners = {
-            'llcrnrlat': -90.0,
-            'llcrnrlon': 0,
-            'urcrnrlat': 90.0,
-            'urcrnrlon': 360}
-        
+#        self.corners = {
+#            'llcrnrlat': -90.0,
+#            'llcrnrlon': 0,
+#            'urcrnrlat': 90.0,
+#            'urcrnrlon': 360}
+        self.corners = [(-85,0), (85,360)]
+
+    @property
+    def corners(self):
+        ret = [
+            (self._corners['llcrnrlat'], self._corners['llcrnrlon']),
+            (self._corners['urcrnrlat'], self._corners['urcrnrlon'])]
+        return ret
+
+    @corners.setter
+    def corners(self, corners):
+        self._corners['llcrnrlat'] = corners[0][0]
+        self._corners['llcrnrlon'] = corners[0][1]
+        self._corners['urcrnrlat'] = corners[1][0]
+        self._corners['urcrnrlon'] = corners[1][1]
+
     def _set_basemap(self, ax):
         mapobj = Basemap(ax=ax,
                       projection=self.projection,
-                      llcrnrlat=self.corners['llcrnrlat'],
-                      llcrnrlon=self.corners['llcrnrlon'],
-                      urcrnrlat=self.corners['urcrnrlat'],
-                      urcrnrlon=self.corners['urcrnrlon'])
+                      llcrnrlat=self._corners['llcrnrlat'],
+                      llcrnrlon=self._corners['llcrnrlon'],
+                      urcrnrlat=self._corners['urcrnrlat'],
+                      urcrnrlon=self._corners['urcrnrlon'])
         return mapobj
 
 

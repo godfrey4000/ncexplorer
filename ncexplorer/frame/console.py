@@ -12,6 +12,7 @@ import sys
 from getpass import getpass
 from ncexplorer.app import CmdApplication
 from ncexplorer.frame.base import BaseFrame, BaseProgressBar
+from ncexplorer.plotter.canvas import PlottingCanvas, NotebookCanvas
 from ncexplorer.plotter.plotter import ScatterPlotter
 from ncexplorer.plotter.basemapplotter import BasemapPlotter
 
@@ -125,29 +126,6 @@ class ConsoleFrame(BaseFrame):
                 print varline
             i += 1
 
-#    def _plotter(self, **kwargs):
-#        if 'charttype' in kwargs:
-#            charttype = kwargs['charttype']
-#            if charttype.upper() == 'SCATTER':
-#                plotter = ScatterPlotter()
-#            elif charttype.upper() == 'MAP':
-#                plotter = BasemapPlotter(**kwargs)
-#            else:
-#                msg = "Unrecognized chart type: {0}.".format(charttype)
-#                raise RuntimeError(msg)
-#        else:
-#            plotter = BasemapPlotter(**kwargs)
-#
-#        # Let the plotting instance have a reference to this.  The plotting
-#        # instance needs the figure on the canvas managed by this.
-#        plotter.set_canvas(self._canvas)
-#        plotter.set_defaults()
-#        
-#        # Launch the canvas window.
-#        self._canvas.show()
-#            
-#        return plotter
-
     def get_login_creds(self):
         username = raw_input('Username: ')
         password = getpass('Password: ')
@@ -160,27 +138,29 @@ class ConsoleFrame(BaseFrame):
         """Returns empty search string."""
         return ""
 
-    # This is a convenience method for the Console app only.
-#    def new_plotter(self, **kwargs):
+    def _new_canvas(self):
+        return PlottingCanvas((6,6))
+
+    # Create a new instance of a plotter.
     def _plotter(self, **kwargs):
-        """Create a new canvas with a single scatter or basemap figure.
-        
-        This method is only available on the ConsoleFrame."""
+        """Create a new canvas with a single scatter or basemap figure."""
+        canvas = self._new_canvas()
+
         if 'charttype' in kwargs:
             charttype = kwargs['charttype']
             if charttype.upper() == 'SCATTER':
-                plotter = ScatterPlotter()
+                plotter = ScatterPlotter(self, canvas, **kwargs)
             elif charttype.upper() == 'MAP':
-                plotter = BasemapPlotter(**kwargs)
+                plotter = BasemapPlotter(self, canvas, **kwargs)
             else:
                 msg = "Unrecognized chart type: {0}.".format(charttype)
                 raise RuntimeError(msg)
         else:
-            plotter = BasemapPlotter(**kwargs)
+            plotter = BasemapPlotter(self, canvas, **kwargs)
         
-        canvas = self._new_canvas()
-        plotter.set_canvas(canvas)
-        plotter.set_defaults()
+        # These two statements launches a window with an empty map.  Just the
+        # gray continents. 
+        plotter.clear()
         canvas.show()
         return plotter
 
@@ -195,3 +175,9 @@ class ConsoleFrame(BaseFrame):
         raise NotImplemented("No console based interface implemented. " +
                              " Use the interactive shell and import " +
                              "the class.")
+
+
+class NotebookFrame(ConsoleFrame):
+    
+    def _new_canvas(self):
+        return NotebookCanvas((6,6))
