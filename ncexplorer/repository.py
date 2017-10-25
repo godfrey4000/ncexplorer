@@ -357,9 +357,12 @@ class NCXESGF(NCXRepository):
                 log.debug(msg)
     
                 for remotefile in remotefiles:
-                    urlobj = urlparse(remotefile.opendap_url)
-                    filename = urlobj.path.split('/')[-1]
-                    self._urls[filename] = remotefile.opendap_url
+                    try:
+                        urlobj = urlparse(remotefile.opendap_url)
+                        filename = urlobj.path.split('/')[-1]
+                        self._urls[filename] = remotefile.opendap_url
+                    except AttributeError:
+                        print "Missing OPeNDAP URL found."
                 i += 1
                 progressbar.update(msg)
 

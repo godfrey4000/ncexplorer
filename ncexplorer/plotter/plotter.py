@@ -72,7 +72,7 @@ class Plotter(object):
     def draw(self):
         """Render the data as contour levels on a map."""
         self._draw()
-#        self._canvas.show()
+        self._canvas.show()
 
     def clear(self):
         """Draws the map with continents, but no data.
@@ -110,7 +110,7 @@ class Plotter(object):
 
     @property
     def charttypes(self):
-        return ['Skatter', 'Map']
+        return ['Scatter', 'Map']
 
     # The utility methods for printing the object.  These methods are useful
     # when debugging.  The debugging window in eclipse calls the __repr__ and
@@ -133,73 +133,32 @@ class Plotter(object):
     def dataset(self):
         """The object containing the plotted data.
         
-        The object must be an xarray DataArray or Dataset, and conform to the
-        following conventions:
-
-            The object can be an xarray DataArray object, and it must have the
-            appropriate dimensions defined.
-            
-            The object can be an xarray Dataset object with a single variable,
-            and that variable must have the appropriate dimensions.
-            
-            The object can be an xarray Dataset object with more than one
-            variable, but one of the variables must be 'var'.  That is the
-            variable that is plotted.
+        The object must be an xarray DataArray and meet one of the following
+        criteria:
         
-        In any of these cases, object is converted to an xarray Dataset that
-        conforms to the last condition.
+            For the MapPlotter, which plots data onto a projection of the
+            earch, latitude and longitude must be defined.
+            
+            For the ScatterPlotter, time must be defined.
         """
-        return self._dataset
+        return self._dataarray
 
     @dataset.setter
     def dataset(self, dataobj):
+        
+        # Allowing an xarray Dataset object is too complicated, since datasets
+        # can have more than one variable.
+        if type(dataobj) is not xr.DataArray:
+            msg = ("Only Xarray DataArrays can be plotted.")
+            raise TypeError(msg)
 
-        # xarray DataArrays can be plotted if they have 'lat' and 'lon'
+        # xarray DataArrays can be plotted only if they have 'lat' and 'lon'
         # dimensions
-        if type(dataobj) is xr.DataArray:
-            newds = dataobj.to_dataset(name='var')
-            var = newds.data_vars['var']
-            if self._validate_dimensions(var):
-                self._dataset = newds
-            
-        # If the first parameter isn't an xarray DataArray, then it must be an
-        # xarray Dataset.
-        elif type(dataobj) is not xr.Dataset:
-            msg = ("The first parameter must be a xarray DataArray or " +
-                   "Dataset object.")
-            raise TypeError(msg)
-
-        # If the xarray Dataset has only one variable, presume the intention
-        # is to plot that variable.
-        elif len(dataobj.data_vars) == 1:
-            
-            # That only only one entry exists in the dictionary data_vars has 
-            # been establish.  The key is unknown, but the following access in
-            # this case is safe.
-            var = dataobj.data_vars.values()[0]
-            if self._validate_dimensions(var):
-                newds = var.to_dataset(name='var')
-                self._dataset = newds
-            
-        # The dataset has more than one variable, then it must have a variable
-        # 'var', and that is the one to be plotted.  The legitimate instance of
-        # this case is when data plots are saved in Datasets.
-        elif not 'var' in dataobj.data_vars:
-            msg = ("The variable var not found in xarray Dataset containing "
-                   "more than one variable.")
-            raise TypeError(msg)
-
-        else:
-            # It is now established that dataobj is an xarray Dataset with
-            # exactly one variable named 'var'.
-            var = dataobj.data_vars['var']
-            
-            # The dataset must have a 'lat' and a 'lon' dimension.
-            if self._validate_dimensions(var):
-                self._dataset = dataobj
+        if self._validate_dimensions(dataobj):
+                self._dataarray = dataobj
             
         # Set the title.  The 'title' attribute is a 0-dimensional array.
-        plot_titles = extract_plot_titles(self._dataset)
+        plot_titles = extract_plot_titles(self._dataarray)
         title = plot_titles['title']
         var_headline = "{0} [{1}]".format(plot_titles['name'],
                                           plot_titles['units'])

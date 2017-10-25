@@ -47,7 +47,7 @@ class BasemapPlotter(MapPlotter):
         # attribute of the parent class.  so handle that case with an
         # informative error.
         try:
-            var = self.dataset.data_vars['var']
+            var = self._dataarray
         except AttributeError:
             msg = "Has the dataset been set?"
             raise AttributeError(msg)
