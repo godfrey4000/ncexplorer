@@ -30,7 +30,7 @@ class Plotter(object):
     """
     # This implementation requires that subclasses of this class implement a
     # setter method for the dataset attribute.
-    def __init__(self, frame, canvas, **kwargs):
+    def __init__(self, frame, canvas):
         
         # The subclass sets the chart type.
         self._frame = frame
@@ -44,7 +44,7 @@ class Plotter(object):
         # The initialization is quite specialized to the subclass.  This
         # mechanism ensures that all plotting objects are instantiated with
         # the same signature, and that the frame gets set.
-        self._init(**kwargs)
+        self._init()
 
     def _set_charttype(self):
         pass
@@ -72,17 +72,15 @@ class Plotter(object):
     def draw(self):
         """Render the data as contour levels on a map."""
         self._draw()
-        self._canvas.show()
+#        self._canvas.show()
 
     def clear(self):
-        """Draws the map with continents, but no data.
+        """Clears the plot or map.
         
-        This method effectively clears the map."""
-        # Maybe this will clear the figure.
-        self._canvas.clear()
-        
+        For a scatter plot, the scatter points an lines are removed.  For a
+        map, the contour colors are removed, and the map is redrawn with
+        just the continents."""
         self._clear()
-#        self._canvas.show()
     
     def update(self):
         """Calls clear() and then draw() to update the plot."""
@@ -162,8 +160,10 @@ class Plotter(object):
         title = plot_titles['title']
         var_headline = "{0} [{1}]".format(plot_titles['name'],
                                           plot_titles['units'])
-        self._canvas._figure.suptitle(title, y=0.90)
-        self._canvas._figure.text(0, 0.75, var_headline)
+        self._title.set_text(title)
+        self._ylabel.set_text(var_headline)
+#        self._canvas._figure.text(0.10, 0.95, title, fontsize='large')
+#        self._canvas._figure.text(0.10, 0.92, var_headline, fontsize='small')
         return
 
 
@@ -176,6 +176,12 @@ class ScatterPlotter(Plotter):
         dataset: (object) An xarray DataArray or Dataset containing the data
         to be plotted.
     """
+    def _init(self, **kwargs):
+        # Create the areas for the title and x- and y-labels.
+        self._title = self._ax.set_title('')
+        self._ylabel = self._ax.set_ylabel('')
+        self._xlabel = self._ax.set_xlabel('')
+
     def _set_charttype(self):
         self.charttype = 'Scatter'
         
@@ -191,7 +197,40 @@ class ScatterPlotter(Plotter):
         return True
 
     def _clear(self):
-        self.ax.cla()
+        pass
+#        self._ax.cla()
+
+    def _set_title(self, var):
+        plot_titles = extract_plot_titles(var)
+        title = plot_titles['title']
+        self._title.set_text(title)
+        
+    def _set_ytitle(self, var):
+        plot_titles = extract_plot_titles(var)
+        var_headline = "{0} [{1}]".format(plot_titles['name'],
+                                          plot_titles['units'])
+        self._ylabel.set_text(var_headline)
+
+    def _set_xtitle(self, var):
+        plot_titles = extract_plot_titles(var)
+        var_headline = "{0} [{1}]".format(plot_titles['name'],
+                                          plot_titles['units'])
+        self._xlabel.set_text(var_headline)
+
+    def plot(self, x, y, **kwargs):
+        # check that x and y are data arrays.
+        
+        # Sometimes, writing a plot title and axes titles is not wanted.
+        write_titles = True
+        if 'titles' in kwargs:
+            write_titles = kwargs['titles']
+            
+        if write_titles:    
+            self._set_title(y)
+            self._set_ytitle(y)
+            self._set_xtitle(x)
+
+        self._addline(x, y, *kwargs)
         
     def xticks(self, ticklist):
         xlocator = FixedLocator(ticklist)
@@ -203,7 +242,7 @@ class ScatterPlotter(Plotter):
         self._ax.yaxis.set_major_locator(ylocator)
         self._ax.set_ylim([min(ticklist), max(ticklist)])
 
-    def addline(self, time_, var, linetype='thick'):
+    def _addline(self, x, y, linetype='thick'):
         if linetype == 'thin':
             linewidth = 0.25
             color = '#bce8ce'
@@ -211,7 +250,7 @@ class ScatterPlotter(Plotter):
             linewidth = 0.50
             color = '#053619'
 
-        retline = self._ax.plot(time_, var, '-', color=color, linewidth=linewidth)
+        retline = self._ax.plot(x.values, y.values, '-', color=color, linewidth=linewidth)
         return retline
 
     def addsquare(self, x, y, **kwargs):
@@ -294,7 +333,7 @@ class MapPlotter(Plotter):
     def _set_charttype(self):
         self.charttype = 'Map'
 
-    def _init(self):
+    def _init(self, **kwargs):
         
         self._color_continents = COLOR_CONTINENTS
         self._color_coastlines = COLOR_COASTLINES
@@ -314,7 +353,18 @@ class MapPlotter(Plotter):
         # Defaults.
         self._showgrid = False
         self._cs_colors = None
+        
+        # This is a boolean that determines if the colorbar ledged should be
+        # displayed on the plot.
         self._colorbar = None
+        
+        # This is a variable holding the colorbar object.
+        self._cb = None
+        
+        # Title area.
+        self._title = self._canvas._figure.text(0.10, 0.95, '', fontsize='large')
+        self._ylabel = self._canvas._figure.text(0.10, 0.92, '', fontsize='small')
+        
         
     def _add_plot(self):
         self._ax = self._canvas.add_map()

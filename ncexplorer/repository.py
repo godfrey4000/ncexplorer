@@ -219,6 +219,27 @@ class NCXRepository(object):
         """Return the saved URLs"""
         return self._list_urls()
     
+    def _clean(self, dataset):
+        """Routine cleaning of the dataset.
+
+        The dataset passed as a parameter is mutable so it gets modified.
+        """
+        # Replace missing values with numpy's NaN.  The missing value is
+        # usually 1e+20, but values can be like 1.0000002e+20, which is
+        # different.  Ergo the inequality.
+        for var in dataset.data_vars.itervalues():
+            if 'missing_value' in var.attrs:
+                missing_data_value = var.missing_value
+                var.values[var.values >= missing_data_value] = np.NaN
+
+#        # FIX ME: This should check if the time type is monClim.  Also, check
+#        # to see if the first value should be 15.5.  In the meantime, so that
+#        # the value is at the midpoint of the interval, shift everything by
+#        # half.
+#        time0 = dataset.coords['time'][0]
+#        delta = 0.5*(dataset.coords['time'][1] - dataset.coords['time'][0])
+#        dataset.coords['time'] -= time0
+
     def _list_urls(self):
         return self._urls
 
@@ -414,7 +435,7 @@ class NCXESGF(NCXRepository):
 #            # FIX ME: Consider moving this to another place.  This
 #            # operation is the biggest bottleneck of this searching and
 #            # retrieving data.
-#                self._clean(x)
+                self._clean(x)
 
                 temp_ds.append(xdataset)
                 msg = "Retained: {0}".format(filename)
@@ -450,26 +471,26 @@ class NCXESGF(NCXRepository):
     #     (2) The time values differ from dataset to dataset, while the
     #         intervals do not.  With different values, arithmetic on datasets
     #         fails.
-    def _clean(self, dataset):
-        """Cleans the dataset from ESGF.
-
-        The dataset passed as a parameter is mutable so it gets modified.
-        """
-        # Replace missing values with numpy's NaN.  The missing value is
-        # usually 1e+20, but values can be like 1.0000002e+20, which is
-        # different.  Ergo the inequality.
-        for var in dataset.data_vars.itervalues():
-            if 'missing_value' in var.attrs:
-                missing_data_value = var.missing_value
-                var.values[var.values >= missing_data_value] = np.NaN
-
-        # FIX ME: This should check if the time type is monClim.  Also, check
-        # to see if the first value should be 15.5.  In the meantime, so that
-        # the value is at the midpoint of the interval, shift everything by
-        # half.
-        time0 = dataset.coords['time'][0]
-        delta = 0.5*(dataset.coords['time'][1] - dataset.coords['time'][0])
-        dataset.coords['time'] -= time0
+#    def _clean(self, dataset):
+#        """Cleans the dataset from ESGF.
+#
+#        The dataset passed as a parameter is mutable so it gets modified.
+#        """
+#        # Replace missing values with numpy's NaN.  The missing value is
+#        # usually 1e+20, but values can be like 1.0000002e+20, which is
+#        # different.  Ergo the inequality.
+#        for var in dataset.data_vars.itervalues():
+#            if 'missing_value' in var.attrs:
+#                missing_data_value = var.missing_value
+#                var.values[var.values >= missing_data_value] = np.NaN
+#
+#        # FIX ME: This should check if the time type is monClim.  Also, check
+#        # to see if the first value should be 15.5.  In the meantime, so that
+#        # the value is at the midpoint of the interval, shift everything by
+#        # half.
+#        time0 = dataset.coords['time'][0]
+#        delta = 0.5*(dataset.coords['time'][1] - dataset.coords['time'][0])
+#        dataset.coords['time'] -= time0
 
 
 class LocalDirectoryRepository(NCXRepository):
@@ -553,7 +574,7 @@ class LocalDirectoryRepository(NCXRepository):
             # FIX ME: Consider moving this to another place.  This
             # operation is the biggest bottleneck of this searching and
             # retrieving data.
-#                self._clean(x)
+            self._clean(xdataset)
 
             temp_ds.append(xdataset)
             msg = "Saved: [{0}] {1}".format(urlobj.netloc, filename)

@@ -272,8 +272,4 @@ class ProjMercator(ProjectorFlat):
     """
     def __init__(self):
         ProjectorFlat.__init__(self, PROJ_MERCATOR)
-        self.corners = {
-            'llcrnrlat': -80.0,
-            'llcrnrlon': 0,
-            'urcrnrlat': 80.0,
-            'urcrnrlon': 360}
+        self.corners = [(-80.0, 0), (80.0, 360)]

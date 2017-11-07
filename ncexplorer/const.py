@@ -60,6 +60,14 @@ LAMBERT_ANTARTICA = {
     'height': 6000000,
     'width': 6000000 }
 
+#LAMBERT_PACIFIC = {
+#    'standard_lat_S': -40.0,
+#    'standard_lat_N': 20.0,
+#    'center_lat': -9.8,
+#    'center_lon': -154.0,
+#    'height': 6000000,
+#    'width': 6000000 }
+
 
 # Map colorings.
 COLOR_COASTLINES = '#666666'

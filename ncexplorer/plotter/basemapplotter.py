@@ -25,6 +25,11 @@ class BasemapPlotter(MapPlotter):
     def clear(self):
         
         self._ax.cla()
+        
+        # Remove the colorbar if it's there.
+        if self._cb is not None:
+            self._cb.remove()
+
         self._map.drawmapboundary()
         self._map.drawcoastlines(linewidth=0.5, color=self._color_coastlines)
         self._map.fillcontinents(color=self._color_continents, alpha=0.5)
@@ -88,7 +93,7 @@ class BasemapPlotter(MapPlotter):
         # FIXME: Once the reason for this causing an error in jupyter notebooks
         # is discovered, this test can be removed.
 #        if self._colorbar and self._canvas.colorbar_ok():
-        self._map.colorbar(cs)
+        self._cb = self._map.colorbar(cs)
 
 
 # This class serves the Tk desktop GUI application.

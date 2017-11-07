@@ -9,6 +9,10 @@ import matplotlib.pyplot as plt
 class PlottingCanvas(object):
     
     def __init__(self, figsize):
+        
+        # For newer version, jet isn't the default colormap anymore.
+        plt.set_cmap('jet')
+        plt.ion()
         self._figure = plt.figure(figsize=figsize)
         self._figsize = figsize
         self._axes = []
@@ -30,6 +34,9 @@ class PlottingCanvas(object):
 
     def show(self):
         self._figure.show()
+
+    def plotobj(self):
+        return plt
 
     def __unicode__(self):
         pretty = []

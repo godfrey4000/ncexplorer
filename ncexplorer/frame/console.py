@@ -145,24 +145,28 @@ class ConsoleFrame(BaseFrame):
     def _plotter(self, **kwargs):
         """Create a new canvas with a single scatter or basemap figure."""
         canvas = self._new_canvas()
+        self._plot_canvas = canvas
 
         if 'charttype' in kwargs:
             charttype = kwargs['charttype']
             if charttype.upper() == 'SCATTER':
-                plotter = ScatterPlotter(self, canvas, **kwargs)
+                plotter = ScatterPlotter(self, canvas)
             elif charttype.upper() == 'MAP':
-                plotter = BasemapPlotter(self, canvas, **kwargs)
+                plotter = BasemapPlotter(self, canvas)
             else:
                 msg = "Unrecognized chart type: {0}.".format(charttype)
                 raise RuntimeError(msg)
         else:
-            plotter = BasemapPlotter(self, canvas, **kwargs)
+            plotter = BasemapPlotter(self, canvas)
         
         # These two statements launches a window with an empty map.  Just the
         # gray continents. 
         plotter.clear()
-        canvas.show()
         return plotter
+
+    # The pyplot object, to accommodate the full suite of it's capability.
+    def plotobj(self):
+        return self._plot_canvas.plotobj()
 
     # Nothing implemented here yet.  A Ncurses terminal interface might be
     # helpful, but that's not trivial to implement.  Short of something like

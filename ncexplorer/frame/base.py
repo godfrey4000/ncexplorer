@@ -107,6 +107,7 @@ class BaseFrame(object):
 #        # canvas implementation could relate to a web browser, a desktop
 #        # X window, etc.
 #        self._canvas = self._new_canvas()
+        self._plot_canvas = None
 
     # These methods constitute the interface.
     def _set_application(self, title):
