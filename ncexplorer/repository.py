@@ -230,7 +230,10 @@ class NCXRepository(object):
         for var in dataset.data_vars.itervalues():
             if 'missing_value' in var.attrs:
                 missing_data_value = var.missing_value
-                var.values[var.values >= missing_data_value] = np.NaN
+                try:
+                    var.values[var.values >= missing_data_value] = np.NaN
+                except ValueError:
+                    print "Encountered ValueError in {0}.  Ignoring".format(var.name)
 
 #        # FIX ME: This should check if the time type is monClim.  Also, check
 #        # to see if the first value should be 15.5.  In the meantime, so that
