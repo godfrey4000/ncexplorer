@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup (
 	name='ncexplorer',
-	version='0.0.1.dev6',
+	version='0.7.2'
 	description='Climate data analysis utility.',
 	long_description='Climate data analysis utility.',
 	url='https://github.com/godfrey4000/ncexplorer',
