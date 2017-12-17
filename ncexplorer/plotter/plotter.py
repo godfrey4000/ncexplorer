@@ -230,7 +230,7 @@ class ScatterPlotter(Plotter):
             self._set_ytitle(y)
             self._set_xtitle(x)
 
-        self._addline(x, y, *kwargs)
+        self._addline(x, y, **kwargs)
         
     def xticks(self, ticklist):
         xlocator = FixedLocator(ticklist)
@@ -242,7 +242,12 @@ class ScatterPlotter(Plotter):
         self._ax.yaxis.set_major_locator(ylocator)
         self._ax.set_ylim([min(ticklist), max(ticklist)])
 
-    def _addline(self, x, y, linetype='thick'):
+    def _addline(self, x, y, **kwargs):
+        if 'linetype' in kwargs:
+            linetype = kwargs['linetype']
+        else:
+            linetype = 'thick'
+
         if linetype == 'thin':
             linewidth = 0.25
             color = '#bce8ce'
