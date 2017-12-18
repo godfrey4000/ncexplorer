@@ -9,6 +9,8 @@ import numpy as np
 import xarray as xr
 from scipy.spatial import KDTree, Delaunay
 from scipy.interpolate import LinearNDInterpolator
+from scipy.signal import gaussian
+from scipy.signal import convolve
 
 from pydap.client import open_url
 from pydap.cas.urs import setup_session
@@ -544,3 +546,53 @@ def get_urs_file(url):
 #    dataset = open_url(the_url, session=session)
     ds = xr.open_dataset(url, decode_cf=False, engine='pydap', session=session)
     return ds
+
+def gaussian_smooth(var, sigma):
+    """Apply a filter, along the time dimension.
+    
+    Applies a gaussian filter to the data along the time dimension.  if the
+    time dimension is missing, raises an exception.  The DataArray that is
+    returned is shortened along the time dimension by sigma, half of sigma on
+    each end.
+    
+    The width of the window is 2xsigma + 1.
+    """
+    if type(var) is not xr.DataArray:
+        raise TypeError("First argument must be an Xarray DataArray.")
+    if 'time' not in var.dims:
+        raise IndexError("Time coordinate not found.")
+
+    # The convolution window must have the same number of dimensions as the
+    # variable.  The length of every dimension is one, except time, which is
+    # 2xsigma + 1.
+    var_dimensions = np.ones( len(var.coords), dtype=np.int )
+    timepos = var.dims.index('time')
+    var_dimensions[timepos] = 2*sigma + 1
+    
+    # Use a normalized gaussian so the average of the variable does not change.
+    gausswin = gaussian(2*sigma + 1, sigma)
+    gausswin = gausswin/np.sum(gausswin)
+
+    # The window series used in the convolve operation is the gaussion for the
+    # time dimension and a singleton zero for the other dimensions.  This way
+    # the multidimension covolve is:
+    #
+    #    g(m,n,...) = \sum_k \sum_l ... f[k,l,...]h[k-m]\delta_l0...
+    #
+    timeslice_specification = [0 for x in range(len(var.coords))]
+    timeslice_specification[timepos] = slice(None)
+    win = np.zeros(var_dimensions)
+    win[timeslice_specification] = gausswin
+    
+    # The third parameter 'same' specifies a return array of the same shape as
+    # var.
+    out = convolve(var, win, 'same')
+    outda = xr.DataArra(out,
+                        coords=var.coords,
+                        dims=var.dims)
+    outda.attrs = var.attrs
+
+    # Append "(Gaussian filtered: sigma = ###" to the end of th variable name.
+    newname = "{0} (Gaussian filtered: sigma = {1})".format(var.name, sigma)
+    outda.name = newname
+    return outda
