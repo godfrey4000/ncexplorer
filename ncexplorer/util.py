@@ -587,12 +587,13 @@ def gaussian_smooth(var, sigma):
     # The third parameter 'same' specifies a return array of the same shape as
     # var.
     out = convolve(var, win, 'same')
-    outda = xr.DataArra(out,
-                        coords=var.coords,
-                        dims=var.dims)
+    outda = xr.DataArray(out,
+                         name=var.name,
+                         coords=var.coords,
+                         dims=var.dims)
     outda.attrs = var.attrs
 
-    # Append "(Gaussian filtered: sigma = ###" to the end of th variable name.
-    newname = "{0} (Gaussian filtered: sigma = {1})".format(var.name, sigma)
-    outda.name = newname
+#    # Append "(Gaussian filtered: sigma = ###" to the end of th variable name.
+#    newname = "{0} (Gaussian filtered: sigma = {1})".format(var.name, sigma)
+#    outda.name = newname
     return outda
