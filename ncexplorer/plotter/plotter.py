@@ -263,7 +263,7 @@ class ScatterPlotter(Plotter):
 
     def addcircle(self, x, y, **kwargs):
         self._addpoint(x, y, 'o', **kwargs)
-        
+
     def _addpoint(self, x, y, shape, **kwargs):
         
         if 'color' not in kwargs:
@@ -358,6 +358,7 @@ class MapPlotter(Plotter):
         # Defaults.
         self._showgrid = False
         self._cs_colors = None
+        self._textmsg = None
         
         # This is a boolean that determines if the colorbar ledged should be
         # displayed on the plot.
@@ -545,6 +546,13 @@ class MapPlotter(Plotter):
         """Return a list of supported projections"""
         return PROJECTION_DESCRIPTIONS
 
+    def addtext(self, xfrac, yfrac, msg):
+    # FIXME: This is terrible.
+        if self._textmsg is None:
+            self._textmsg = self._canvas._figure.text(xfrac, yfrac, msg, fontsize='small')
+        else:
+            self._textmsg.set_text(msg)
+        
     def points_to_lonlats(self, points):
         """Converts a tuplelike set of points to longitude and latitude."""
         

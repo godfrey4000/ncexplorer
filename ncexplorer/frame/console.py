@@ -108,6 +108,10 @@ class ConsoleFrame(BaseFrame):
         pb = ProgressBarText(barLength=20)
         return pb
 
+    def _lister(self, dict):
+        for key, item in dict.items():
+            print "{0}: {1}".format(key, item.describe())
+
     def _display_variables(self, payload):
         """Print each dataset on a line.
         
@@ -138,13 +142,17 @@ class ConsoleFrame(BaseFrame):
         """Returns empty search string."""
         return ""
 
-    def _new_canvas(self):
-        return PlottingCanvas((6,6))
+    def _new_canvas(self, **kwargs):
+        if 'figsize' in kwargs:
+            figsize=kwargs['figsize']
+        else:
+            figsize=(6,6) 
+        return PlottingCanvas(figsize=figsize)
 
     # Create a new instance of a plotter.
     def _plotter(self, **kwargs):
         """Create a new canvas with a single scatter or basemap figure."""
-        canvas = self._new_canvas()
+        canvas = self._new_canvas(**kwargs)
         self._plot_canvas = canvas
 
         if 'charttype' in kwargs:

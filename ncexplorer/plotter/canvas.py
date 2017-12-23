@@ -3,7 +3,16 @@ Created on May 29, 2017
 
 @author: neil
 '''
+import matplotlib as mpl
+
+# The Qt5Agg backend, which is what is selected by default, has a bug that
+# pegs the CPU at 99%, making the system very slow.  Forcing the backend to
+# be TkAgg works around this problem.
+mpl.use('TkAgg')
 import matplotlib.pyplot as plt
+
+# Turns off the toolbar on the plot window.
+mpl.rcParams['toolbar'] = 'None'
 
 
 class PlottingCanvas(object):

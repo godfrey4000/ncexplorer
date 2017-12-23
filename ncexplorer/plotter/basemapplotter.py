@@ -79,6 +79,9 @@ class BasemapPlotter(MapPlotter):
             # FIXME: Find out why this exception occurs.
             data = var
             cyclic_lon = lon
+        except TypeError:
+            data = var
+            cyclic_lon = lon            
         
         lons, lats = np.meshgrid(cyclic_lon, lat)
         xl, yl = self._map(lons, lats)
@@ -93,7 +96,7 @@ class BasemapPlotter(MapPlotter):
         # FIXME: Once the reason for this causing an error in jupyter notebooks
         # is discovered, this test can be removed.
 #        if self._colorbar and self._canvas.colorbar_ok():
-        self._cb = self._map.colorbar(cs)
+        self._cb = self._map.colorbar(cs, fig=self._canvas._figure, ax=self._ax)
 
 
 # This class serves the Tk desktop GUI application.

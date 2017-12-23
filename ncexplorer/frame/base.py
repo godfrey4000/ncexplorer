@@ -159,6 +159,12 @@ class BaseFrame(object):
     # interpreter.
     # FIX ME: These should python objects instead of console output.
     @property
+    def repositories(self):
+        """A list of the repositories."""
+        repos = self._app.repositories
+        self._lister(repos)
+            
+    @property
     def usernames(self):
         """A list of the user names associated with the repositories."""
         return self._app.list_usernames()

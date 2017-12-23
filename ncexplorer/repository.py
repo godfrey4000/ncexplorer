@@ -21,6 +21,7 @@ from ncexplorer.config import CFG_ESGF_OPENID_NODE
 from ncexplorer.config import TRIVIAL_USERNAME, TRIVIAL_PASSWORD
 from ncexplorer.util import get_urs_file
 from fileinput import filename
+from platform import node
 
 
 # The authenticator classes make it possible to use different authentication
@@ -167,6 +168,9 @@ class NCXRepository(object):
 #                   "attribute").format(self.id)
 #            raise NameError(msg)
 
+    def describe(self):
+        return "Yep."
+
     def username(self):
         """Return the username used by the authenticator."""
         return self._authenticator.username()
@@ -218,6 +222,10 @@ class NCXRepository(object):
     def urls(self):
         """Return the saved URLs"""
         return self._list_urls()
+
+    def describe(self):
+        """Returns a string that describes the instance of the object."""
+        return "The method describe() is not implemented"
     
     def _clean(self, dataset):
         """Routine cleaning of the dataset.
@@ -294,6 +302,9 @@ class NCXURS(NCXRepository):
             # Advance to the next day.
             cur_dt = cur_dt + onemonth
 
+    def describe(self):
+        return "Earthdata iterator"
+
     def _set_id(self):
         # FIXME:  Tthis is a total kludge.
         return 'URS'
@@ -331,6 +342,10 @@ class NCXESGF(NCXRepository):
 
         node = self._repo_parameters['node']        
         return 'ESGF'
+
+    def describe(self):
+        node = self._repo_parameters['search_node']
+        return node
 
     # TODO: This is set to the trivial authenticator, waiting for a
     # means to collect user name and password from the web GUI and the
@@ -522,6 +537,11 @@ class LocalDirectoryRepository(NCXRepository):
 
         return id
 
+    def describe(self):
+        if self._path is None:
+            return "Path not set"
+        return self._path
+
     def _path_leaf(self, path):
         head, tail = ntpath.split(path)
         return tail or ntpath.basename(head)
@@ -577,7 +597,7 @@ class LocalDirectoryRepository(NCXRepository):
             # FIX ME: Consider moving this to another place.  This
             # operation is the biggest bottleneck of this searching and
             # retrieving data.
-            self._clean(xdataset)
+#            self._clean(xdataset)
 
             temp_ds.append(xdataset)
             msg = "Saved: [{0}] {1}".format(urlobj.netloc, filename)
